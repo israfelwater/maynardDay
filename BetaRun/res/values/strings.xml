@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">vocalX</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="OnAirTrue">On Air</string>
+    <string name="OnAirFalse">Standby</string>
+	<string name="StartingNote">A</string>
+	<string-array name="notes">
+	    
+	    <item name="note0">A</item>
+		<item name="note1">Bb</item>
+		<item name="note2">B</item>
+		<item name="note3">C</item>
+		<item name="note4">Db</item>
+		<item name="note5">D</item>
+		<item name="note6">Eb</item>
+		<item name="note7">E</item>
+		<item name="note8">F</item>
+		<item name="note9">Gb</item>
+		<item name="note10">G</item>
+		<item name="note11">Ab</item>
+		
+	</string-array>
+	
+</resources>
