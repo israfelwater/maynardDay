@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen  xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- opens a subscreen of settings -->
+            <ListPreference
+            android:key="input_device_key"
+            android:title="@string/input_device"/>
+        <PreferenceScreen
+            android:key="output_device_key"
+            android:title="@string/output_device"
+            android:persistent="false">
+        </PreferenceScreen>
+</PreferenceScreen>

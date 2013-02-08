@@ -50,7 +50,7 @@ public class MyGLSurfaceView extends GLSurfaceView {
         //builder.show();
     }
     
-    /*private TextView createTextView(Context context) {
+    private TextView createTextView(Context context) {
         TextView noteView = new TextView(context);
         noteView.setId(R.id.note_reading);
         noteView.setGravity(TEXT_ALIGNMENT_TEXT_START);
@@ -65,9 +65,9 @@ public class MyGLSurfaceView extends GLSurfaceView {
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:text="@string/StartingNote"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />*/
 		return noteView;
-	}*/
+	}
 
 	public MyGLSurfaceView getMyGLSurfaceView(Context context){
     	return this;

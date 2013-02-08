@@ -187,7 +187,7 @@ public class AudioOnAir {
 			amplitudes[i] /= 2<<15;//take four samples and sum into one sample, also normalize
 		}
 		try {
-			mGLView.updateAmplitudes(dsp.newSamples(amplitudes, 0));
+			mGLView.updateAmplitudes(dsp.updateSpectrum(amplitudes, 0));
 		} catch (Exception e) {
 			AlertDialog.Builder builder;
 	        builder = new AlertDialog.Builder(mContext);

@@ -13,10 +13,6 @@ import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.PreferenceFragment;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -28,7 +24,6 @@ import android.widget.TextView;
  * 
  * @see SystemUiHider
  */
-@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 public class FullscreenActivity extends Activity {
 	/**
 	 * Whether or not the system UI should be auto-hidden after
@@ -76,21 +71,7 @@ public class FullscreenActivity extends Activity {
 	 */
 	public MyGLSurfaceView mGLView;
 	
-	/**
-	 * The instance of the activity bar menu
-	 */
-	private Menu mMenu;
 
-	/**
-	 * The instance of the activity bar options MenuItem
-	 */
-	private MenuItem mMenuItem;
-	
-	/**
-	 * The instance of the Settings Menu
-	 */
-	private MenuItem mSettingsMenu;
-	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -173,15 +154,8 @@ public class FullscreenActivity extends Activity {
 		// Create instance on AudioOnAir
 		mAudioOnAir = new AudioOnAir((Button) findViewById(R.id.dummy_button), (TextView) findViewById(R.id.fullscreen_content));
 		mGLView = new MyGLSurfaceView(this,mAudioOnAir.NoteSpectrum);
-	
-        // Display the fragment as the main content.
-        //getFragmentManager().beginTransaction()
-        //        .replace(android.R.id.content, new SettingsFragment())
-        //        .commit();	
 	}
-	
-	
-	
+
 	@Override
 	protected void onPostCreate(Bundle savedInstanceState) {
 		super.onPostCreate(savedInstanceState);
@@ -192,18 +166,6 @@ public class FullscreenActivity extends Activity {
 		delayedHide(100);
 	}
 
-	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-	    MenuInflater inflater = getMenuInflater();
-	    inflater.inflate(R.xml.menu, menu);
-	    mMenuItem = menu.findItem(R.id.options_menu_item);
-	    mMenuItem.setOnActionExpandListener(mOptionsExpandListener);
-	    mSettingsMenu = menu.findItem(R.id.settings_menu);
-	    mMenu = menu;
-	    return true;
-	}
-	
 	/**
 	 * Touch listener to use for in-layout UI controls to delay hiding the
 	 * system UI. This is to prevent the jarring behavior of controls going away
@@ -251,33 +213,5 @@ public class FullscreenActivity extends Activity {
 		mHideHandler.postDelayed(mHideRunnable, delayMillis);
 	}
 	
-	public boolean onOptionsItemSelected(MenuItem item){
-		
-		mHideHandler.removeCallbacks(mHideRunnable);
-		
-		return false;
-	}
-	
-	/**
-	 * Remove the UI's hide routine when the options menu is expanded
-	 * and hide UI when options menu is collapsed.
-	 */
-	private MenuItem.OnActionExpandListener mOptionsExpandListener = new MenuItem.OnActionExpandListener() {
-		
-		@Override
-		public boolean onMenuItemActionExpand(MenuItem item) {
-			mHideHandler.removeCallbacks(mHideRunnable);
-			return false;
-		}
-		
-		@Override
-		public boolean onMenuItemActionCollapse(MenuItem item) {
-			delayedHide(AUTO_HIDE_DELAY_MILLIS);
-			return false;
-		}
-	};
-	
-	
+
 }
-
-

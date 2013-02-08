@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen  xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- opens a subscreen of settings -->
+    <PreferenceScreen
+        android:key="devices_category_key"
+        android:title="@string/devices"
+        android:persistent="false">
+        <ListPreference
+            android:key="input_device_key"
+            android:title="@string/input_device"/>
+        <PreferenceScreen
+            android:key="output_device_key"
+            android:title="@string/output_device"
+            android:persistent="true">
+        </PreferenceScreen>
+    </PreferenceScreen>
+    <PreferenceScreen
+    	android:key="visualizations_category_key"
+        android:title="@string/visualizations"
+        android:persistent="false">
+        <ListPreference
+            android:key="visual_number_of_particles"
+            android:title="@string/number_of_particles"/>
+        <PreferenceScreen
+            android:key="visual_type_of_particles"
+            android:title="@string/particle_diffusion"
+            android:persistent="true">
+        </PreferenceScreen>
+	</PreferenceScreen>  
+	<PreferenceScreen
+    	android:key="addons_category_key"
+        android:title="@string/addons"
+        android:persistent="false">
+        <Preference
+            android:title="@string/report_problem">
+        	<intent android:action="android.intent.action.VIEW"
+            android:data="http://www.mypromotank.com" />
+        </Preference>
+        <PreferenceScreen
+            android:key="shapes_key"
+            android:title="@string/shapes"
+            android:persistent="true">
+        </PreferenceScreen>
+		<Preference
+            android:title="@string/report_problem">
+        	<intent android:action="android.intent.action.VIEW"
+            android:data="http://www.mypromotank.com" />
+        </Preference>       
+	</PreferenceScreen>      
+</PreferenceScreen>
