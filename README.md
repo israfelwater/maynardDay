@@ -7,3 +7,5 @@ time audio.
 
 Working on an openGL visual of scared geometry using particle 
 filtering. 
+
+email me at tspinc@gmail.com with any questions
