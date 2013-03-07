@@ -1,6 +1,6 @@
 package com.example.betarun.util;
 
-import android.app.Activity;
+import android.app.Activity; 
 import android.os.Build;
 import android.view.View;
 
@@ -24,6 +24,12 @@ import android.view.View;
  * @see android.view.WindowManager.LayoutParams#FLAG_FULLSCREEN
  */
 public abstract class SystemUiHider {
+	/**
+	 * When this boolean is true the UI show and hide work as normal
+	 * set to false to disable UI show/hide effect. Initially enabled.
+	 */
+	public boolean mUIHiderEnable = true;
+	
 	/**
 	 * When this flag is set, the
 	 * {@link android.view.WindowManager.LayoutParams#FLAG_LAYOUT_IN_SCREEN}
@@ -134,13 +140,29 @@ public abstract class SystemUiHider {
 	 * Toggle the visibility of the system UI.
 	 */
 	public void toggle() {
-		if (isVisible()) {
-			hide();
-		} else {
-			show();
-		}
+		if (mUIHiderEnable){
+			if (isVisible()) {
+				hide();
+			} else {
+				show();
+			}
+		} else hide();
 	}
 
+	/**
+	 * Enable SystemUIHider
+	 */
+	public void enable() {
+		mUIHiderEnable = true;
+	}
+	
+	/**
+	 * Disable SystemUIHider
+	 */
+	public void disable() {
+		mUIHiderEnable = false;
+	}
+	
 	/**
 	 * Registers a callback, to be triggered when the system UI visibility
 	 * changes.

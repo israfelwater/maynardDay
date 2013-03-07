@@ -41,22 +41,26 @@ public class SystemUiHiderBase extends SystemUiHider {
 
 	@Override
 	public void hide() {
-		if ((mFlags & FLAG_FULLSCREEN) != 0) {
-			mActivity.getWindow().setFlags(
-					WindowManager.LayoutParams.FLAG_FULLSCREEN,
-					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		if (mUIHiderEnable){
+			if ((mFlags & FLAG_FULLSCREEN) != 0) {
+				mActivity.getWindow().setFlags(
+						WindowManager.LayoutParams.FLAG_FULLSCREEN,
+						WindowManager.LayoutParams.FLAG_FULLSCREEN);
+			}
+			mOnVisibilityChangeListener.onVisibilityChange(false);
+			mVisible = false;
 		}
-		mOnVisibilityChangeListener.onVisibilityChange(false);
-		mVisible = false;
 	}
 
 	@Override
 	public void show() {
-		if ((mFlags & FLAG_FULLSCREEN) != 0) {
-			mActivity.getWindow().setFlags(0,
-					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		if (mUIHiderEnable){
+			if ((mFlags & FLAG_FULLSCREEN) != 0) {
+				mActivity.getWindow().setFlags(0,
+						WindowManager.LayoutParams.FLAG_FULLSCREEN);
+			}
+			mOnVisibilityChangeListener.onVisibilityChange(true);
+			mVisible = true;
 		}
-		mOnVisibilityChangeListener.onVisibilityChange(true);
-		mVisible = true;
 	}
 }

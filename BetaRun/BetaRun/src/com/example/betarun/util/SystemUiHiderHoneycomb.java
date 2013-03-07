@@ -5,7 +5,7 @@ import android.app.Activity;
 import android.os.Build;
 import android.view.View;
 import android.view.WindowManager;
-
+ 
 /**
  * An API 11+ implementation of {@link SystemUiHider}. Uses APIs available in
  * Honeycomb and later (specifically {@link View#setSystemUiVisibility(int)}) to
@@ -79,13 +79,17 @@ public class SystemUiHiderHoneycomb extends SystemUiHiderBase {
 	/** {@inheritDoc} */
 	@Override
 	public void hide() {
-		mAnchorView.setSystemUiVisibility(mHideFlags);
+		if (mUIHiderEnable){
+			mAnchorView.setSystemUiVisibility(mHideFlags);
+		}
 	}
 
 	/** {@inheritDoc} */
 	@Override
 	public void show() {
-		mAnchorView.setSystemUiVisibility(mShowFlags);
+		if (mUIHiderEnable){
+			mAnchorView.setSystemUiVisibility(mShowFlags);
+		}
 	}
 
 	/** {@inheritDoc} */
