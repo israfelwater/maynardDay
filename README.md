@@ -8,4 +8,16 @@ time audio.
 Working on an openGL visual of scared geometry using particle 
 filtering. 
 
+4/1/2013, happy April Fools, visuallization is working now. 
+
+Git Commands
+  $cd ~vocalX
+  $cp ../BetaRun BetaRun -r
+  $git add .
+  $git commit -a
+  $git push
+
+  it is just that simple.
+
+
 email me at tspinc@gmail.com with any questions
