@@ -7,8 +7,12 @@ import com.example.betarun.audio.AudioOnAir;
 import com.example.betarun.openGL.MyGLSurfaceView;
 import com.example.betarun.settings.SettingsFragment;
 import com.example.betarun.settings.SettingsActivity;
+//import com.example.betarun.settings.SubSettingsFragment;
+import com.example.betarun.usbAudio.UsbAudioManager;
 import com.example.betarun.util.SystemUiHider;
 
+import android.animation.Animator;
+import android.animation.Animator.AnimatorListener;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -32,13 +36,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceFragment;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.TextureView;
+import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 /**
@@ -147,6 +154,15 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	 * The instance of the renderscript particleFilter used in MyGLRenderer
 	 */
 	
+	/**
+	 * The instance of the {@link FrameLayout} for this activity
+	 */
+	private FrameLayout mFragmentViewGroup;
+	
+	/**
+	 * The instance of the {@link UsbAudioManager} for this activity
+	 */
+	private UsbAudioManager mUsbAudioManager;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -156,7 +172,7 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 
 		final View controlsView = findViewById(R.id.fullscreen_content_controls);
 		final View contentView = findViewById(R.id.fullscreen_content);
-		
+		mFragmentViewGroup = (FrameLayout) findViewById(R.id.fragment_container);
 
 		// Set up an instance of SystemUiHider to control the system UI for
 		// this activity.
@@ -226,9 +242,13 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		findViewById(R.id.dummy_button).setOnClickListener(
 				mClickListener);
 		
-		
+				
 		// Create instance on AudioOnAir
-		mAudioOnAir = new AudioOnAir((Button) findViewById(R.id.dummy_button), (TextView) findViewById(R.id.fullscreen_content));
+		// get list of USB connected devices.
+		mUsbAudioManager = new UsbAudioManager(this);
+		mAudioOnAir = new AudioOnAir((Button) findViewById(R.id.dummy_button), 
+				(TextView) findViewById(R.id.fullscreen_content), 
+				mUsbAudioManager);
 		mGLView = new MyGLSurfaceView(this,mAudioOnAir.NoteSpectrum);
 		mGLTextureView = new OpenGLTextureViewSample(this);
 		mGLTextureView.setSurfaceTextureListener(this);
@@ -239,13 +259,28 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
                 .replace(android.R.id.content, mSettingsFragment)
                 .commit();//*/	
 		
-		// get list of USB connected devices.
-		mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-		mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-		IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-		registerReceiver(mUsbReceiver, filter);
-		detectUSB();
-}
+
+
+	}
+	
+	@Override 
+	protected void onStop(){
+		super.onStop();
+		mAudioOnAir.StopAudio();
+	}
+	
+	
+	@Override 
+	protected void onDestroy(){
+		super.onDestroy();
+		mAudioOnAir.kill();
+	}
+	
+	@Override
+	protected void onRestart(){
+		super.onRestart();
+		mAudioOnAir.StartAudio();
+	}
 	
 	
 	
@@ -298,20 +333,63 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	View.OnClickListener mClickListener = new View.OnClickListener() {
 		@Override
 		public void onClick(View view) {
+			mAudioOnAir.Toggle(mGLView);
 			TOGGLE_ONAIR_CLICK = !TOGGLE_ONAIR_CLICK;
+			
 			if (TOGGLE_ONAIR_CLICK) {
 				//intend to start the audio 
-				Intent intent = new Intent(view.getContext(), AudioOnAir.class);				
-				mAudioOnAir.Toggle(mGLView);
+				//Intent intent = new Intent(view.getContext(), AudioOnAir.class);				
+				
 				//findViewById(R.id.fullscreen_content);
 				//setContentView(R.layout.activity_onair);
-				setContentView(mGLView);
+				
+				mFragmentViewGroup.addView(mGLView);
+				findViewById(R.id.fullscreen_content).animate()
+					.alpha(0f)
+					.setDuration(AUTO_HIDE_DELAY_MILLIS)
+					.setListener(null);
+				//setContentView(mGLView);
 				//setContentView(mGLTextureView);
 				//mGLView.builder.show();
-			}else setContentView(R.layout.activity_fullscreen);
+			}else {
+				//mGLView.setVisibility(View.GONE);
+				findViewById(R.id.fullscreen_content).setVisibility(View.VISIBLE);
+				findViewById(R.id.fullscreen_content).animate()
+					.alpha(1f)
+					.setDuration(AUTO_HIDE_DELAY_MILLIS/3)
+					.setListener(null);
+				mFragmentViewGroup.removeView(mGLView);
+				//setContentView(R.layout.activity_fullscreen);
+			}
 			
 		}
 	};
+	
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event)  {
+	    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.ECLAIR
+	            && keyCode == KeyEvent.KEYCODE_BACK
+	            && event.getRepeatCount() == 0) {
+	        // Take care of calling this method on earlier versions of
+	        // the platform where it doesn't exist.
+	        onBackPressed();
+	    }
+
+	    return super.onKeyDown(keyCode, event);
+	}
+
+	@Override
+	public void onBackPressed() {
+	    // This will be called either automatically for you on 2.0
+	    // or later, or by the code above on earlier versions of the
+	    // platform.
+		
+		if (TOGGLE_ONAIR_CLICK) {
+			findViewById(R.id.dummy_button).performClick();
+		} else finish();
+		
+	    return;
+	}
 	
 	public void OpenDevicePreferences(View view){
 		// Display the fragment as the main content.
@@ -435,62 +513,9 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		
 	}
 	
-	/**
-	 * Get a list of all the audio device connected via USB hub.
-	 */
-	private void detectUSB() {
-		HashMap<String, UsbDevice> deviceList = mUsbManager.getDeviceList();
-		Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
-		while(deviceIterator.hasNext()){
-		    UsbDevice device = deviceIterator.next();
-		    mUsbManager.requestPermission(device, mPermissionIntent); // request permission to speak to device
-		    if (device.getDeviceClass()==UsbConstants.USB_CLASS_AUDIO) { //check if USB device is an audio device
-		    	for (int i = 0; i < device.getInterfaceCount(); i++){
-		    		UsbInterface audioInterface = device.getInterface(i);
-		    		for (int j = 0; j < audioInterface.getEndpointCount(); j++){
-		    			UsbEndpoint audioEndpoint = audioInterface.getEndpoint(j);
-		    			String description = audioEndpoint.toString();
-		    			
-		    			if (audioEndpoint.getDirection()==UsbConstants.USB_DIR_IN){ // Is an audio input device ...
-		    				// add input audio device to arraylist
-		    				//String[] inputDeviceArray = getResources().getStringArray(R.array.input_devices_entries);
-		    				//inputDeviceArray = description;
-		    				//getStringArray(R.array.input_devices_keys).addItem("Inteface=" + i + ",EndPoint=" + j);
-		    				Log.d("USBInputDevice", "Inteface=" + i + ",EndPoint=" + j + 
-		    						"Description=" + description);
-		    			}else if (audioEndpoint.getDirection()==UsbConstants.USB_DIR_OUT){ // Is an audio output device ... 
-		    				// add output audio device to arraylist
-		    				//getStringArray(R.array.output_devices_entries).addItem(description);
-		    				//getStringArray(R.array.output_devices_keys).addItem("Inteface=" + i + ",EndPoint=" + j);
-		    				Log.d("USBOutputDevice", "Inteface=" + i + ",EndPoint=" + j + 
-		    						"Description=" + description);
-		    			}
-		    		}
-		    	}
-		    }
-		}
-	}
+
 	
-	private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
-		public void onReceive(Context context, Intent intent) {
-		    String action = intent.getAction();
-		    if (ACTION_USB_PERMISSION.equals(action)) {
-		        synchronized (this) {
-		            UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-		            if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-		                if(device != null){
-		                	//call method to set up device communication
-		                	detectUSB();
-		                }
-		            } else {
-		            	Log.d(TAG, "permission denied for device " + device);
-		            }
-		        }
-		    }
-		}
-	};
 	
 }
 

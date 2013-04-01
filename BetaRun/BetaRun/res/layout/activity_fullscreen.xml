@@ -10,6 +10,10 @@
          is needed to present your content, e.g. VideoView, SurfaceView,
          TextureView, etc.
     -->
+	<FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <TextView
         android:id="@+id/fullscreen_content"
@@ -21,7 +25,7 @@
         android:textColor="#33b5e5"
         android:textSize="50sp"
         android:textStyle="bold" />
-
+	
     <!--
          This FrameLayout insets its children based on system windows using
          android:fitsSystemWindows.

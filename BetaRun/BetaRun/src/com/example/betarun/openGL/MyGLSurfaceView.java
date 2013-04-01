@@ -16,8 +16,8 @@ public class MyGLSurfaceView extends GLSurfaceView {
     Context mContext;
     
     private int[] NoteSpectrum;
-	float maxAmplitude = 0;
-	int maxAmpIdx = 0;
+	public float maxAmplitude = 0;
+	public int maxAmpIdx = 0;
     
     public TextView note_display;
 
@@ -71,6 +71,10 @@ public class MyGLSurfaceView extends GLSurfaceView {
 	public MyGLSurfaceView getMyGLSurfaceView(Context context){
     	return this;
     }
+	
+	public MyGLRenderer getRenderer(){
+		return mRenderer;
+	}
     
 
     private final float TOUCH_SCALE_FACTOR = 180.0f / 320;
@@ -113,16 +117,8 @@ public class MyGLSurfaceView extends GLSurfaceView {
     public boolean updateAmplitudes(float[] amplitudes) throws Exception{
     	maxAmplitude = mRenderer.mAmplitude[maxAmpIdx];
     	mRenderer.mNoteAmp = maxAmplitude;
-    	float minAmplitude = 0.01f;
-    	
-    	float modeGain = 1;
-    	for (int i=95;i>=0;i--){
-    		if (i%12==0){
-    			modeGain*=2;
-    		}
-    		mRenderer.mAmplitude[i] = amplitudes[i]*modeGain;	
-    	}
-    	
+    	float minAmplitude = 0.001f;
+    	mRenderer.mAmplitude = amplitudes;
     	
     	for (int i=24;i<72;i++){
     		if (mRenderer.mAmplitude[i]>maxAmplitude && mRenderer.mAmplitude[i]>minAmplitude){
@@ -134,7 +130,7 @@ public class MyGLSurfaceView extends GLSurfaceView {
     	//builder.
     	//builder.show();
     	if (maxAmpIdx>=24) {
-    		mRenderer.mNote = NoteSpectrum[maxAmpIdx];
+    		mRenderer.mNote = maxAmpIdx%12;
     		int temp = (int) Math.ceil((maxAmpIdx-23.0f)/12.0f);
     		if (temp==0){
     			//catch me

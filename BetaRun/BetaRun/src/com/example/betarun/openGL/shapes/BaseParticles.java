@@ -20,7 +20,7 @@ public class BaseParticles {
         "void main() {" +
         // the matrix must be included as a modifier of gl_Position
         "  gl_Position = vPosition * uMVPMatrix;" +
-        "  gl_PointSize = 2.0;" +
+        "  gl_PointSize = 1.0;" +
         "}";
 
     private final String fragmentShaderCode =

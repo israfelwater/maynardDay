@@ -1,22 +1,37 @@
 package com.example.betarun.audio;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Array;
+
+import com.example.betarun.R;
+
+
+import android.content.Context;
 
 public class DSPEngine {
 	private float[][] avgLadder, detLadder, twiddleFactor;
-	private float[][] sampleCirBuffer; 
+	private float[][] sampleCirBuffer, lastLPSample; 
 	public int[] noteFactor;
 	private final int real = 0, twidIdx = 0;
 	private final int imag = 1, jIdx = 1;
-	private float[] spectrum, freqSpec, lastLPSample, imagSpectrum, realSpectrum;
+	private float[] spectrum, freqSpec, imagSpectrum, realSpectrum;
 	private int[] ladderIndex= {0,0,0,0,0,0,0,0}, partNoteFFTIndex;
-	private int bufferSize;
+	private int bufferSize, numCoeffs = 3, numFilters = 96;
 	private int sampleFreq;
 	private int[][] twiddleIdx = new int[12*8][2];
 	private int[][] phaseCirBuffer;
+	private float[] bCoeffs = {0.2928932188134524f, 0.5857864376269047f, 0.2928932188134524f};
+	private float[] aCoeffs = {1.0f, -1.387778780781446e-16f, 0.1715728752538099f};
+	private double[][] coeffsA, coeffsB, filterPad;
+	private float[] oldSamples;
+	private Context mContext;
 	
 	
-	public DSPEngine(int BufferSize,int sampleRate){
+	public DSPEngine(int BufferSize,int sampleRate, Context context){
+		mContext = context;
 		sampleFreq = sampleRate;
 		bufferSize = BufferSize;
 		detLadder = avgLadder = new float[8][bufferSize*2];
@@ -27,8 +42,11 @@ public class DSPEngine {
 		noteFactor = calcNoteBins(bufferSize, sampleRate); // set freqSpec in caclNoteBins
 		spectrum = new float[96]; //base on 12 notes per 8 octaves
 		partNoteFFTIndex = new int[8];
-		lastLPSample = new float[8];
-		
+		lastLPSample = new float[8][4];
+		coeffsA = readCoeffFile(R.raw.coeffs_a_36);
+		coeffsB = readCoeffFile(R.raw.coeffs_b_36);
+		filterPad = new double[numFilters][numCoeffs];
+		oldSamples = new float[numCoeffs];
 	}
 	
 	public float[] newSamples(float[] samples, int mode) throws Exception{
@@ -165,13 +183,19 @@ public class DSPEngine {
 		int N = bufferSize, firstIdx = (bufferSize>>2)+1, lastIdx =bufferSize>>1;
 		int aNote = noteFactor[firstIdx], num2Norm = 0, specIdx=0;
 		float[] decayedSpectrum = new float[spectrum.length];
-		float decayFactor = 0.005f;
+		float decayFactor = 0.0001f;
 		
+		//decay all
+		for (int i = 0; i<spectrum.length; i++){
+			if (spectrum[i]>decayFactor){
+				spectrum[i]-=decayFactor;
+			}
+		}
 		
 		//set spectrum to zero, TODO addd a persist decay thing
 		for (int i = 0; i<12; i++){
 			if (Math.abs(spectrum[(7-mode)*12+i])>decayFactor);
-				decayedSpectrum[(7-mode)*12+i] = spectrum[(7-mode)*12+i] - decayFactor; //decay by one...
+				decayedSpectrum[(7-mode)*12+i] = spectrum[(7-mode)*12+i]; //decay by one...
 			spectrum[(7-mode)*12+i] = 0;
 		}
 		
@@ -341,23 +365,23 @@ public class DSPEngine {
 	float[] LowPass(float[] samples, int mode){
 		float[] output = new float[samples.length];
 		
-		double a0 = 1 + (4.0/Math.PI);
-		double a1 = 1 - (4.0/Math.PI);
-		double b0 = 1;
-		double b1 = 1;
+		float a0 = aCoeffs[0], a1 = aCoeffs[1], a2 = aCoeffs[2],
+				b0 = bCoeffs[0], b1 = bCoeffs[1], b2 = bCoeffs[2];
 		
-		//normallize
-		a1 /= a0;
-		b0 /= a0;
-		b1 /= a0;
-		
-		
+	
 		//zero pad
-		output[0] = (float)  (b0*samples[0]+b1*lastLPSample[mode]-a1*lastLPSample[mode]);
-		for (int i=1; i<samples.length; i++){
-			output[i] = (float) (b0*samples[i]+b1*samples[i-1]-a1*output[i-1]);
+		output[0] = b0*samples[0]+b1*lastLPSample[mode][0]+b2*lastLPSample[mode][1]-
+					a1*lastLPSample[mode][2]-a2*lastLPSample[mode][3];
+		output[1] = b0*samples[1]+b1*samples[0]+b2*lastLPSample[mode][0]-
+					a1*output[0]-a2*lastLPSample[mode][2];
+		for (int i=2; i<samples.length; i++){
+			output[i] = b0*samples[i]+b1*samples[i-1]+b2*samples[i-2]-
+						a1*output[i-1]-a2*output[i-2];
 		}
-		lastLPSample[mode] = output[samples.length-1];
+		lastLPSample[mode][0] = samples[samples.length-1];
+		lastLPSample[mode][1] = samples[samples.length-2];
+		lastLPSample[mode][2] = output[samples.length-1];
+		lastLPSample[mode][3] = output[samples.length-2];
 		return output;
 	}
 	
@@ -370,6 +394,160 @@ public class DSPEngine {
 		}
 		return output;
 	}
+	
+	/**
+	 * Adapted from http://huuah.com/android-writing-and-reading-files/
+	 * @param filename
+	 */
+	private double[][] readCoeffFile(int fileId){
+		// try opening the myfilename.txt
+		double[][] output = new double[numFilters][numCoeffs];
+		String[][] StringArray = new String[numCoeffs][numFilters];
+		try {
+			// open the file for reading
+			InputStream instream = mContext.getResources().openRawResource(fileId);
+	 
+			// 	if file the available for reading
+			if (instream.available()>0) {
+				// prepare the file for reading
+				InputStreamReader inputreader = new InputStreamReader(instream);
+				BufferedReader buffreader = new BufferedReader(inputreader);
+	                 
+				String line;
+				
+	 
+				// read every line of the file into the line-variable, on line at the time
+				for (int i = 0; i < numCoeffs; i++){
+					line = buffreader.readLine();
+					// do something with the settings from the file
+					StringArray[i] = line.split(" ");
+				} 
+	 
+			}
+	     
+			// close the file again       
+			instream.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  
+		
+		for (int i = 0; i<numCoeffs; i++) {
+			for (int j = 0; j<numFilters; j++) {
+				output[j][i] = Double.valueOf(StringArray[i][j]);
+			}
+		}
+		
+		return output;
+	}
+
+	/**
+	 * takes an array of time domain samples runs them through
+	 *  96 band pass filters (one per note, twelve notes per octave)
+	 *  returns an array of amplitudes similar to spectrum
+	 *  
+	 * @param samples
+	 * @return amplitudes
+	 */
+	public float[] filterSamples(float[] samples) {
+		float[] output = new float[numFilters];
+		double[] input = new double[samples.length];
+		for (int i=0;i<samples.length;i++){
+			input[i] = samples[i];
+		}
+		
+		//filter buffered samples
+		for (int i = 24; i < 72; i++){
+			output[i] = filter(input, coeffsB[i], coeffsA[i], i);
+		}
+		
+		//store off old samples for next pass
+		for (int j = 0; j<numCoeffs; j++){
+			oldSamples[j] = samples[samples.length-j-1]; 
+		}
+		
+		return output;
+	}
+
+	/**
+	 * Filters a samples stream and returns the largest amplitude based
+	 * 
+	 *  should work for anysize filter and anysize buffered samples
+	 *  
+	 * @param samples, input stream
+	 * @param b, b filter coeffs
+	 * @param a, a filter coeffs
+	 * @param k, the key index of the filter
+	 * @return amplitude of the filter
+	 */
+	private float filter(double[] samples, double[] b, double[] a, int k) {
+		float maxAmplitude = 0;
+		int l = b.length; 
+		
+		//initiallize filter (zero pad) or continue from stored, or "padded", values
+		for (int i = 0; i < l; i ++){
+			filterPad[k][i] = 0; //set new index back to tabula rasa, three day hunt for this bug...
+			
+			for (int j = 0; j<l; j++){ // add up b coeffs times stored data or new samples
+				if (i-j<0){
+					filterPad[k][i] += b[j]*oldSamples[j-i-1];
+				} else {
+					filterPad[k][i] += b[j]*samples[i-j];
+				}
+			}
+			
+			 
+			for (int j = 1; j<l; j++){ // reduce by IIR stored data points
+				if (i-j<0){
+					filterPad[k][i] -= a[j]*filterPad[k][i+l-j];
+				} else {
+					filterPad[k][i] -= a[j]*filterPad[k][i-j];
+				}
+			}
+			
+			if (abs(filterPad[k][i])>maxAmplitude){
+				maxAmplitude = (float) abs(filterPad[k][0]);
+			}
+		}
+		
+		// Main filtering algorythm
+		for (int i = l; i<samples.length; i++){
+			filterPad[k][i%l] = 0; //set new index back to tabula rasa
+			
+			for (int j = 0; j<l; j++){
+				filterPad[k][i%l] += b[j]*samples[i-j];
+			}
+			for (int j = 1; j<l; j++){
+				if (i%l-j<0){
+					filterPad[k][i%l] -= a[j]*filterPad[k][i%l+l-j];
+				} else {
+					filterPad[k][i%l] -= a[j]*filterPad[k][i%l-j];
+				}
+			}
+			
+			if (abs(filterPad[k][i%l]) > maxAmplitude) {
+				maxAmplitude = (float) abs(filterPad[k][i%l]);
+			}
+		}
+		
+		// reset filterPad to 0 index
+		double[] temp = new double[l];
+		for (int i = 0; i < l; i++){
+			temp[i] = filterPad[k][(samples.length+i)%l];
+		}
+		filterPad[k] = temp;
+
+		
+		return maxAmplitude;
+	}
+	
+	public double abs(double n){
+		if (n>0.0){
+			return n;
+		} 
+		return -n;
+	}
+	
 }
 
 

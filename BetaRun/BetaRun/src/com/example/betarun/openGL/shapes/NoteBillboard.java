@@ -72,10 +72,10 @@ public class NoteBillboard {
     float color[] = { 0.2f, 0.709803922f, 0.898039216f, 1.0f };
 
     public NoteBillboard(Context context) {
-    	float[] Coords = {-0.1f, -0.3f, 0.0f,   // top left
-    					   -0.1f, -0.5f, 0.0f,   // bottom left
-    					    0.1f, -0.5f, 0.0f,   // bottom right
-    					    0.1f, -0.3f, 0.0f }; // top right
+    	float[] Coords = {-0.1f, 0.8f, 0.0f,   // top left
+    					   -0.1f, 0.6f, 0.0f,   // bottom left
+    					    0.1f, 0.6f, 0.0f,   // bottom right
+    					    0.1f, 0.8f, 0.0f }; // top right
     	squareCoords = Coords;
         // initialize vertex byte buffer for shape coordinates
         ByteBuffer bb = ByteBuffer.allocateDirect(
@@ -132,10 +132,10 @@ public class NoteBillboard {
      
         GLES20.glGenTextures(12, textureHandles, 0);
         
-        int[] note = {R.drawable.note0, R.drawable.note1, R.drawable.note2,
+        int[] note = {R.drawable.note1, R.drawable.note2,
         		R.drawable.note3, R.drawable.note4, R.drawable.note5,
         		R.drawable.note6, R.drawable.note7, R.drawable.note8,
-        		R.drawable.note9, R.drawable.note10, R.drawable.note11
+        		R.drawable.note9, R.drawable.note10, R.drawable.note11, R.drawable.note0
         };
      
         int i = 0;

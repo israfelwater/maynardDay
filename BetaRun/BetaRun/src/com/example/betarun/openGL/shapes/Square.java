@@ -84,7 +84,7 @@ public class Square {
     }
 
     public void draw(float[] mvpMatrix, float Alpha) {
-    	float color[] = { 0.7f, Alpha, 0.0f, 0.0f};
+    	float color[] = { 0.3f, Alpha, 0.0f, 0.0f};
     	
     	//	Add program to OpenGL environment
         GLES20.glUseProgram(mProgram);

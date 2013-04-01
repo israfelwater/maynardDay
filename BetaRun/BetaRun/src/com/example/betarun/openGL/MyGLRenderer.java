@@ -277,14 +277,14 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
         for (int i = 0; i < mSquare.length; i++){
         	Matrix.setIdentityM(mScaleMatrix, 0);
         	//Matrix.setIdentityM(mTranslationMatrix, 0);
-        	Matrix.scaleM(mScaleMatrix, 0, 1.0f, 300.0f*mAmplitude[j++], 1.0f);
+        	Matrix.scaleM(mScaleMatrix, 0, 1.0f, 1000.0f*mAmplitude[j++], 1.0f);
         	Matrix.multiplyMM(mTransposeMatrix, 0, mScaleMatrix , 0, mMVPMatrix, 0);
         	//Matrix.translateM(mTranslationMatrix, 0, 0.3f, 0.3f, 0.0f);
         	//Matrix.multiplyMM(mTransposeMatrix, 0, mScaleMatrix, 0, mRotationMatrix, 0);
         	if (i == 12+mMode*12+mNote) { // is fundamental
         		mSquare[i].draw(mTransposeMatrix, 1.0f);//mParticleBins.normallizedBins[i]);
         	} else if ( i > 12+mMode*12 && i < 24+mMode*12) { // in mode
-        		mSquare[i].draw(mTransposeMatrix, 5.0f);//mParticleBins.normallizedBins[i]);
+        		mSquare[i].draw(mTransposeMatrix, 0.3f);//mParticleBins.normallizedBins[i]);
         	} else {
         		mSquare[i].draw(mTransposeMatrix, 0.0f);//mParticleBins.normallizedBins[i]);
         	}

@@ -39,18 +39,24 @@
 	
 	<string-array name="input_devices_entries">
 	    <item name="input_default">System Default(Internal Mic)</item>
+	    <item name="inUSB_default">USB Input Device</item>
 	</string-array>
 	<string-array name="input_devices_keys">
 	    <item name="input_default">System Default(Internal Mic)</item>
+	    <item name="inUSB_default">USB Input Device</item>
 	</string-array>
 	<string name="input_default">System Default(Internal Mic)</string>
+	<string name="inUSB_default">USB Input Device</string>
 	
 	<string-array name="output_devices_entries">
 	    <item name="output_default">System Default(Playback Speaker)</item>
+	    <item name="outUSB_default">USB Output Device</item>
 	</string-array>
 		<string-array name="output_devices_keys">
 	    <item name="output_default">System Default(Playback Speaker)</item>
+	    <item name="outUSB_default">USB Output Device</item>
 	</string-array>
 	<string name="output_default">System Default(Playback Speaker)</string>
-		
+	<string name="outUSB_default">USB Output Device</string>	
+	
 </resources>

@@ -6,10 +6,13 @@ import java.util.Arrays;
 import com.example.betarun.R;
 import com.example.betarun.openGL.MyGLRenderer;
 import com.example.betarun.openGL.MyGLSurfaceView;
+import com.example.betarun.settings.SettingsActivity;
+import com.example.betarun.usbAudio.UsbAudioManager;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
@@ -20,6 +23,7 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Handler;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.renderscript.Double2;
 
 
@@ -48,52 +52,83 @@ public class AudioOnAir {
 	
 	private AudioRecord mAudioRecord; 
 	private AudioTrack mAudioTrack;
+	private int mAudioTrackBufferSize;
 	//private AudioRecord.OnRecordPositionUpdateListener mOnRecordListener; 
 	
-	private int bufferSize = 512, sampleRate = 44100, writeOffset = 0, wave_index_tracker = 0;
+	private int bufferSize = 8*512, sampleRate = 44100, writeOffset = 0, wave_index_tracker = 0;
 	
 	private ByteBuffer inputBuffer = ByteBuffer.allocateDirect(bufferSize);
 
-	private byte[] outputBuffer = new byte[bufferSize<<1];
-	public byte[] processBuffer = null;
+	private byte[] outputBuffer = new byte[bufferSize];
+	private byte[] mAudioTrackBuffer;
+	private int mAudioTrackIdx = 0;
+	public float[] processBuffer = new float[bufferSize/2];
 	
 	private double[] wave_samples;
+	private double phase = 0.0;
 	
 	private DSPEngine dsp;
 	private  Modal mModal;
+	private OnAir mOnAir;
 	public int[] NoteSpectrum;
+	private SharedPreferences mSharedPref;
+	private UsbAudioManager mUsbAudioManager;
 		
-	public AudioOnAir(Button OnAirButton, TextView textView) {
+
+	private int numRecChannels, numBytePerFrame=2, numTrackChannels;
+	
+	public AudioOnAir(Button OnAirButton, TextView textView, UsbAudioManager usbAM) {
+		mUsbAudioManager = usbAM;
 		onAirButton = OnAirButton;
 		backgroundText = textView;
 		mContext = textView.getContext();
 		mAudioManager =	(AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-		dsp = new DSPEngine(bufferSize>>2, sampleRate);
+		dsp = new DSPEngine(bufferSize>>2, sampleRate, mContext);
 		NoteSpectrum = dsp.noteFactor;
 		
 		//Setup input buffer
+		int AudioRecordBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, 
+				AudioFormat.ENCODING_PCM_16BIT);
+		Log.i("com.hp.vocalx.AudioOnAir", "Track buffer size " + mAudioTrackBufferSize +
+				"; Record Buffersize = " + AudioRecordBufferSize);
+		
+		while (AudioRecordBufferSize<bufferSize){
+			AudioRecordBufferSize *= 2;
+		}
+		
+		AudioRecordBufferSize += (AudioRecordBufferSize%bufferSize);
 		mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,  sampleRate, 
-				AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, 
-				AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, 
-				AudioFormat.ENCODING_PCM_16BIT));
-		mAudioRecord.setPositionNotificationPeriod(bufferSize>>1);
+				AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, AudioRecordBufferSize);
+		mAudioRecord.setPositionNotificationPeriod(bufferSize/numBytePerFrame); // in frames, two bytes per frame pcm16 and monoChannel
 		mAudioRecord.setRecordPositionUpdateListener(mRecordListener); 
-			
+		numRecChannels	= mAudioRecord.getChannelCount();
+
 		
 		
 		//Setup output buffer
+		mAudioTrackBufferSize = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, 
+				AudioFormat.ENCODING_PCM_16BIT);
+		mAudioTrackBufferSize += bufferSize - (mAudioTrackBufferSize % bufferSize);
+		//mAudioTrackBufferSize *= 10;
+		mAudioTrackBuffer = new byte[mAudioTrackBufferSize];
 		mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, 
 				AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, 
-				2 * AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, 
-						AudioFormat.ENCODING_PCM_16BIT), AudioTrack.MODE_STREAM);
+				mAudioTrackBufferSize, AudioTrack.MODE_STREAM);
 		//mAudioTrack.setPositionNotificationPeriod(bufferSize >> 1);
 		//mAudioTrack.setPlaybackPositionUpdateListener(mPlaybackListener);
-		Log.i("com.hp.vocalx.AudioOnAir", mAudioRecord.getAudioFormat() + " " + mAudioRecord.getSampleRate()
-				+ " " + mAudioTrack.getAudioFormat() + " " + mAudioTrack.getSampleRate() + " " + 
-				mAudioTrack.getPlaybackRate());
-		
-		
+		Log.i("com.hp.vocalx.AudioOnAir", "format record = " + mAudioRecord.getAudioFormat() + 
+				"; sample rate record = " + mAudioRecord.getSampleRate()
+				+ "; format track = " + mAudioTrack.getAudioFormat() + 
+				"; sample Rate Track " + mAudioTrack.getSampleRate() + 
+				"; track playback rate " + mAudioTrack.getPlaybackRate());
+		Log.i("com.hp.vocalx.AudioOnAir", "Track buffer size " + mAudioTrackBufferSize +
+				"; Record Buffersize = " + AudioRecordBufferSize);
+		//mOnAir = new OnAir(mAudioRecord, mAudioTrack);
 		wave_samples = CalcWave();
+		numTrackChannels = mAudioTrack.getChannelCount();
+		
+		mSharedPref = PreferenceManager.getDefaultSharedPreferences(mContext);
+		
 	}
 	
 	Handler mAudioEventHandler = new Handler(Looper.getMainLooper()){
@@ -105,31 +140,68 @@ public class AudioOnAir {
 		onAirButton.setText(backgroundText.getText());
 		backgroundText.setText(tempStringHolder);
 		mGLView = gLView;
+		
+		//backgroundText.setContent(mGLView);
+
 		 
 		if (tempStringHolder == mContext.getString(R.string.OnAirTrue)){
+			onAirBool = true;
 			StartAudio();
 		}else {
+			onAirBool = false;
 			StopAudio();
 		}
 			
 	}
 	
-	private void StartAudio() {
-		onAirBool = true;
-		mAudioRecord.startRecording();
-		Read();
-		//mAudioTrack.play();
-		Log.i("OnAir",mAudioManager.isMicrophoneMute() + " " + mAudioManager.isMusicActive()
-				+ " " + mAudioManager.isSpeakerphoneOn() + " " + mAudioManager.getMode());
+	public void StartAudio() {
+		if (!onAirBool == true) {return;}
+		String inputDevice = mSharedPref.getString("input_device_key", mContext.getString(R.string.input_default));
+	
+		if (inputDevice.contains(mContext.getString(R.string.input_default))){
+			mAudioRecord.startRecording();
+			//readThread.start();
+			Read();
+			int RecordingState = mAudioRecord.getRecordingState();
+		} else if (inputDevice.matches(mContext.getString(R.string.inUSB_default))) {
+			readByteArray(mUsbAudioManager.mUsbRecord.run()); 
+		}
 		
+
+		
+		
+		mAudioTrack.play();
+		//writeThread.start();
 		Write();
+		int PlayState = mAudioTrack.getPlayState();
+		
+		processThread.run();
+		Thread.State processState = processThread.getState();
+		
+		//Log.i("OnAir",mAudioManager.isMicrophoneMute() + " " + mAudioManager.isMusicActive()
+		//		+ " " + mAudioManager.isSpeakerphoneOn() + " " + mAudioManager.getMode() +
+		//		"; PlayState = " + PlayState + "; RecordingState = " + RecordingState +
+		//		"; Process State = " + processState);
 	}
 	
-	private void StopAudio() {
-		onAirBool = false;
+	public void StopAudio() {
+		if (!onAirBool == false) {return;}
 		mAudioRecord.stop();
 		mAudioTrack.pause();
 	}
+	
+	public void kill(){
+		mAudioRecord.release();
+		mAudioTrack.release();
+	}
+	
+	private Thread readThread = new Thread(new Runnable() {
+		@Override
+		public void run() {
+			Read();
+		}
+	}, "OnAirRead");
+
 	
 	private void Read() {
 		inputBufferReadyForRead = true;
@@ -141,9 +213,31 @@ public class AudioOnAir {
 		//outputBuffer = TestSound();//inputBuffer.array();
 		//reverse(outputBuffer);
 		//Write();
-		processBuffer = inputBuffer.array();
-		ProcessBuffer();
+		byte[] tempByte = inputBuffer.array();
+		readByteArray(tempByte);
+
+		//ProcessBuffer();
 	}
+	
+	private void readByteArray(byte[] tempByte) {
+		// TODO Auto-generated method stub
+		for (int i = 0; i < tempByte.length / (numRecChannels*numBytePerFrame); i++){
+			if (numRecChannels == 1){
+				short tempShort = (short) ((tempByte[2*i+1]<<8) + tempByte[2*i]); 
+				processBuffer[i] = (float) (tempShort / Math.pow(2,15)); 
+			} //TODO else for stereo type record.
+			
+		}
+	}
+
+	private Thread writeThread = new Thread(new Runnable() {
+
+		@Override
+		public void run() {
+			
+		}
+		
+	}, "OnAirWrite");
 	
 	private void Write() {
 		outputBufferReadyForRead = true;
@@ -155,21 +249,53 @@ public class AudioOnAir {
 						AudioFormat.ENCODING_PCM_16BIT), AudioTrack.MODE_STATIC);
 		//mAudioTrack.setPositionNotificationPeriod(bufferSize >> 1);
 		//mAudioTrack.setPlaybackPositionUpdateListener(mPlaybackListener);*/ 
-		mAudioTrack.setStereoVolume(AudioTrack.getMaxVolume(), AudioTrack.getMaxVolume());
+		//mAudioTrack.setStereoVolume(AudioTrack.getMaxVolume(), AudioTrack.getMaxVolume());
+		/*Log.i("com.hp.vocalx.AudioTrack","Track Notification Marker Poision = " + mAudioTrack.getNotificationMarkerPosition() +
+				"; Playback Head Poistion = " + mAudioTrack.getPlaybackHeadPosition() +
+				"; Notification Period = " + mAudioTrack.getPositionNotificationPeriod() + 
+				"; state = " + mAudioTrack.getState());*/
+		//if (mAudioTrack.getPlaybackHeadPosition() > mAudioTrackBufferSize / mAudioTrack.getChannelCount()){
+		//	mAudioTrack.setPlaybackHeadPosition(0);
+		//}
+		byte[] bufferTemp = new byte[bufferSize];
+		bufferTemp = TestSound(bufferTemp, mGLView.maxAmpIdx, mGLView.maxAmplitude);
+		mAudioTrack.write(bufferTemp, writeOffset, bufferSize);
+		
+		/*/ move the outputBuffer to the AudioTrackBuffer
+		for (int i = 0; i < bufferSize*2; i++){
+			mAudioTrackBuffer[mAudioTrackIdx++] = outputBuffer[i];
+		}
+		
+		if (mAudioTrackIdx >= mAudioTrackBufferSize){
+			mAudioTrack.write(mAudioTrackBuffer, writeOffset, mAudioTrackBufferSize);
+			mAudioTrackIdx = 0;
+		}//*/
+		
+		//if (mAudioTrack.getState() != 3) {mAudioTrack.play();}
 		
 		
-		if (mAudioTrack.getState() != 3) {mAudioTrack.play();}
-		 //TestSound();
-		mAudioTrack.write(outputBuffer, writeOffset, bufferSize);
+		//mAudioTrack.write(outputBuffer, writeOffset, bufferSize);
 		//Log.i("OnAir",mAudioManager.isMicrophoneMute() + " " + mAudioManager.isMusicActive()
 		//		+ " " + mAudioManager.isSpeakerphoneOn() + " " + mAudioManager.getMode());
-		
+					
+
 	}
 	
-	private boolean ProcessBuffer() {
-		float[] amplitudes = new float[128];
+	private Thread processThread = new Thread(new Runnable(){
+
+		@Override
+		public void run() {
+			ProcessBuffer();
+		}
 		
-		outputBuffer = processBuffer;
+	}, "OnAirProcess");
+	
+	
+	private boolean ProcessBuffer() {
+		float[] amplitudes = new float[bufferSize/4]; //two samples per frame
+		
+		//outputBuffer = processBuffer;
+		
 		//for (int i=0; i<bufferSize>>2;i++){
 		//	outputBuffer[4*i] = processBuffer[i];
 		//	outputBuffer[4*i+1] = processBuffer[i+1];
@@ -178,16 +304,21 @@ public class AudioOnAir {
 		//}
 		//processBuffer = dsp.newSamples(processBuffer,0);
 		
-		for (int i=0; i<128;i++){
+		/*
+		for (int i=0; i<bufferSize;i++){
 			for (int j=0; j<2;j++){
 				short temp = (short) ((processBuffer[4*i+2*j+1]<<8) + processBuffer[4*i+2*j]); 
 				amplitudes[i] += (float) temp;
 			}
-			amplitudes[i] /= 2<<15;//take four samples and sum into one sample, also normalize
+			amplitudes[i] /= (float) Math.pow(2.0f, 15.0f);//take four samples and sum into one sample, also normalize
+		}//*/
+		for (int i=0; i < amplitudes.length; i++){
+			amplitudes[i] = (processBuffer[2*i+1] + processBuffer[2*i])/2.0f;
 		}
 		
 		try {
-			mGLView.updateAmplitudes(dsp.newSamples(amplitudes, 0));
+			//mGLView.updateAmplitudes(dsp.newSamples(amplitudes, 0));
+			mGLView.updateAmplitudes(dsp.filterSamples(amplitudes));
 		} catch (Exception e) {
 			AlertDialog.Builder builder;
 	        builder = new AlertDialog.Builder(mContext);
@@ -227,8 +358,20 @@ public class AudioOnAir {
 				@Override
 				public void onPeriodicNotification(AudioRecord recorder) {
 					if (onAirBool){
+						/*
+						if (!readThread.isAlive()){
+							readThread.run();
+						}
+						if (!writeThread.isAlive()){
+							writeThread.run();
+						}
+						 //*/
+						
 						Read();
 						Write();
+						if (!processThread.isAlive()){
+							processThread.run();
+						}
 					}
 					
 				}
@@ -272,13 +415,17 @@ public class AudioOnAir {
 	    }
 	  }
 	
-	private byte[] TestSound(){
-		double[] sample = new double[bufferSize>>2];
-		byte[] generatedSnd = new byte[bufferSize];
+	private byte[] TestSound(byte[] buff, int note, float amp){
+		double[] sample = new double[buff.length>>mAudioTrack.getChannelCount()];
+		byte[] generatedSnd = new byte[buff.length];
+		double baseNote = 55.0; 
+		int freqControl = (int) (baseNote * Math.pow(2.0, (double) note / 12 ));
+		double phaseInc = 2 * Math.PI * freqControl / sampleRate;
 				
-	    for (int i = 0; i < bufferSize>>2; ++i) {
-	    	if (wave_index_tracker >= wave_samples.length) wave_index_tracker = 0;
-            sample[i] = wave_samples[wave_index_tracker++];
+	    for (int i = 0; i < sample.length; ++i) {
+	    	if (phase >= 2.0 * Math.PI) {phase %= 2.0 * Math.PI;}
+	    	phase += phaseInc;
+            sample[i] = 2 * amp * Math.sin(phase) + processBuffer[i];//[wave_index_tracker++];
         }
         
 		
@@ -294,11 +441,16 @@ public class AudioOnAir {
         	
             //final short val = (short) ((dVal * 16383));
             // in 16 bit wav PCM, first byte is the low order byte
-            generatedSnd[idx++] = (byte) (val & 0x00ff);
-            generatedSnd[idx++] = (byte) ((val & 0xff00) >>> 8);
-            generatedSnd[idx++] = (byte) (val & 0x00ff);
-            generatedSnd[idx++] = (byte) ((val & 0xff00) >>> 8);
-            
+        	if (mAudioTrack.getChannelCount()==2){
+	            generatedSnd[idx++] = (byte) (val & 0x00ff);
+	            generatedSnd[idx++] = (byte) ((val & 0xff00) >> 8);
+	            generatedSnd[idx++] = (byte) (val & 0x00ff);
+	            generatedSnd[idx++] = (byte) ((val & 0xff00) >> 8);
+        	} else {
+	            generatedSnd[idx++] = (byte) (val & 0x00ff);
+	            generatedSnd[idx++] = (byte) ((val & 0xff00) >> 8);
+        	}
+        	
         }
         return generatedSnd;
 	}
@@ -312,6 +464,10 @@ public class AudioOnAir {
         }
 		return sample;
 	}
+	
+	private static byte[] toBytes(short s) {
+        return new byte[]{(byte)(s & 0x00FF),(byte)((s & 0xFF00)>>8)};
+    }
 }
 
 class Modal {
