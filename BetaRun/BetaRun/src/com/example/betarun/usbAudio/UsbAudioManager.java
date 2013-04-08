@@ -139,5 +139,10 @@ public class UsbAudioManager {
 		    }
 		}
 	};
+	
+	public void close(Context context){
+		context.unregisterReceiver(mUsbReceiver);
+	}
+	
 
 }

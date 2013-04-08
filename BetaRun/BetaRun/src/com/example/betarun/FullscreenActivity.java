@@ -1,12 +1,17 @@
 package com.example.betarun;
 
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import com.example.betarun.audio.AudioOnAir;
+import com.example.betarun.audio.OnAir;
+import com.example.betarun.camera.Pcamera;
 import com.example.betarun.openGL.MyGLSurfaceView;
+import com.example.betarun.settings.HelpActivity;
 import com.example.betarun.settings.SettingsFragment;
 import com.example.betarun.settings.SettingsActivity;
+import com.example.betarun.settings.UpSaleDialog;
 //import com.example.betarun.settings.SubSettingsFragment;
 import com.example.betarun.usbAudio.UsbAudioManager;
 import com.example.betarun.util.SystemUiHider;
@@ -14,6 +19,8 @@ import com.example.betarun.util.SystemUiHider;
 import android.animation.Animator;
 import android.animation.Animator.AnimatorListener;
 import android.annotation.TargetApi;
+import android.app.ActionBar;
+import android.app.ActionBar.OnMenuVisibilityListener;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -22,6 +29,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.graphics.Camera;
 import android.graphics.SurfaceTexture;
 import android.hardware.usb.UsbConstants;
@@ -35,14 +44,17 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceFragment;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MenuItem.OnMenuItemClickListener;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.TextureView;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -62,6 +74,8 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	 */
 	private static boolean AUTO_HIDE = true;
 	
+	
+	
 	public final String TAG = "com.example.betarun";
 
 	/**
@@ -76,6 +90,7 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	 */
 	private static boolean TOGGLE_ON_CLICK = true;
 	
+	private static boolean RECORD_MODE = false;
 	/**
 	 * If set, will toggle the OnAir/OffAir background.,
 	 * will also turn on and off main play back functionality.
@@ -149,6 +164,10 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	 */
 	private static final String ACTION_USB_PERMISSION =
 		    "com.example.betarun.USB_PERMISSION";
+
+
+
+	public static final String EXTRA_MESSAGE = "com.example.betarun.SETTINGS_MESSAGE";
 		
 	/**
 	 * The instance of the renderscript particleFilter used in MyGLRenderer
@@ -164,10 +183,23 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	 */
 	private UsbAudioManager mUsbAudioManager;
 	
+	
+	Pcamera mPcamera;
+	SharedPreferences mSharedPrefs;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
+		mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+		int number_of_runs = mSharedPrefs.getInt("number_of_runs", 0);
+		if (number_of_runs==0){
+			new UpSaleDialog(R.string.dialog_welcome_to_penelope, R.string.dialog_button_enjoy)
+				.show(getFragmentManager(),"PaidForVersionDialog");
+		}
+		mSharedPrefs.edit().putInt("number_of_runs", ++number_of_runs).apply();
+		
+		getOverflowMenu();
 		setContentView(R.layout.activity_fullscreen);
 
 		final View controlsView = findViewById(R.id.fullscreen_content_controls);
@@ -221,6 +253,16 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 
 		
 		// Set up the user interaction to manually show or hide the system UI.
+		//*
+		contentView.setOnTouchListener(new View.OnTouchListener(){
+
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				return mGLView.listenForTouch.onTouch(v, event);
+			}
+		
+		}); //*/
+		
 		contentView.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View view) {
@@ -231,6 +273,8 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 					mSystemUiHider.hide();
 					
 				}
+				
+
 			}
 		});
 
@@ -245,6 +289,7 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 				
 		// Create instance on AudioOnAir
 		// get list of USB connected devices.
+		
 		mUsbAudioManager = new UsbAudioManager(this);
 		mAudioOnAir = new AudioOnAir((Button) findViewById(R.id.dummy_button), 
 				(TextView) findViewById(R.id.fullscreen_content), 
@@ -253,20 +298,27 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		mGLTextureView = new OpenGLTextureViewSample(this);
 		mGLTextureView.setSurfaceTextureListener(this);
 		
-        /*/ Display the fragment as the main content.
-		mSettingsFragment = new SettingsFragment();
-        getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, mSettingsFragment)
-                .commit();//*/	
+        // 
+		//mSettingsFragment = new SettingsFragment();
+	
+		
+		mPcamera = new Pcamera(this,(Button) findViewById(R.id.record_button));
+		//mPcamera.start(mFragmentViewGroup);
+		
+		mSharedPrefs.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
+		//ActionBar mActionBar = getActionBar();
+		//mActionBar.onMenuVisibilitychange();
 		
 
 
+		
 	}
 	
 	@Override 
 	protected void onStop(){
 		super.onStop();
 		mAudioOnAir.StopAudio();
+		mPcamera.stop(mFragmentViewGroup);
 	}
 	
 	
@@ -274,12 +326,16 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	protected void onDestroy(){
 		super.onDestroy();
 		mAudioOnAir.kill();
+		mUsbAudioManager.close(this);
 	}
 	
 	@Override
 	protected void onRestart(){
 		super.onRestart();
 		mAudioOnAir.StartAudio();
+		if (TOGGLE_ONAIR_CLICK && RECORD_MODE) { //TODO change this to and record
+			mPcamera.start(mFragmentViewGroup);
+		}
 	}
 	
 	
@@ -293,6 +349,16 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		// are available.
 		delayedHide(100);
 	}
+	
+	/*@Override
+	public boolean onTouchEvent(MotionEvent e) {
+		super.onTouchEvent(e);
+		if (! (mGLView==null)){
+			mGLView.performClick();
+		}
+		
+		return false;
+	}//*/
 
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	@Override
@@ -312,6 +378,20 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	    
 	    mMenu = menu;
 	    return true;
+	}
+	
+	public boolean onPrepareOptionsMenu(Menu menu){
+		mHideHandler.removeCallbacks(mHideRunnable);
+		if (TOGGLE_ONAIR_CLICK){
+			menu.findItem(R.id.options_menu_item_record).setEnabled(true);
+			menu.findItem(R.id.options_menu_item_record).setOnMenuItemClickListener(RecordOptionMenuListener);
+		} else {
+			menu.findItem(R.id.options_menu_item_record).setEnabled(false);
+			//findViewById(R.id.options_menu_item_record).removeOnClickListener(RecordOptionMenuListener);
+		}
+		
+		return true;
+		
 	}
 	
 	/**
@@ -342,27 +422,52 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 				
 				//findViewById(R.id.fullscreen_content);
 				//setContentView(R.layout.activity_onair);
-				
 				mFragmentViewGroup.addView(mGLView);
 				findViewById(R.id.fullscreen_content).animate()
 					.alpha(0f)
 					.setDuration(AUTO_HIDE_DELAY_MILLIS)
 					.setListener(null);
+				mGLView.setOnTouchListener(mGLView.listenForTouch);
 				//setContentView(mGLView);
 				//setContentView(mGLTextureView);
 				//mGLView.builder.show();
 			}else {
+				if (RECORD_MODE) {
+					RecordOptionMenuListener.onMenuItemClick(mMenu.findItem(R.id.options_menu_item_record));
+					//((View) mMenu.findItem(R.id.options_menu_item_record)).performClick();
+				}
 				//mGLView.setVisibility(View.GONE);
 				findViewById(R.id.fullscreen_content).setVisibility(View.VISIBLE);
 				findViewById(R.id.fullscreen_content).animate()
 					.alpha(1f)
 					.setDuration(AUTO_HIDE_DELAY_MILLIS/3)
 					.setListener(null);
+				//mGLView.removeOnTouchListener(mGLView.listenForTouch);
 				mFragmentViewGroup.removeView(mGLView);
+
 				//setContentView(R.layout.activity_fullscreen);
 			}
 			
 		}
+	};
+	
+	OnMenuItemClickListener RecordOptionMenuListener = new OnMenuItemClickListener(){
+
+		@Override
+		public boolean onMenuItemClick(MenuItem item) {
+			RECORD_MODE = !RECORD_MODE;
+			if (RECORD_MODE) {
+				mPcamera.start(mFragmentViewGroup);
+				findViewById(R.id.record_button).setVisibility(View.VISIBLE);
+				new UpSaleDialog(R.string.dialog_penelope_full_messsage_record)
+					.show(getFragmentManager(),"PaidForVersionDialog");
+			} else {
+				mPcamera.stop(mFragmentViewGroup);
+				findViewById(R.id.record_button).setVisibility(View.GONE);
+			}
+			return true;
+		}
+		
 	};
 	
 	@Override
@@ -383,20 +488,22 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 	    // This will be called either automatically for you on 2.0
 	    // or later, or by the code above on earlier versions of the
 	    // platform.
-		
-		if (TOGGLE_ONAIR_CLICK) {
+		if (mSystemUiHider.isVisible()){
+			mSystemUiHider.hide();
+		} else if (TOGGLE_ONAIR_CLICK) {
 			findViewById(R.id.dummy_button).performClick();
 		} else finish();
 		
 	    return;
 	}
 	
+	/*/
 	public void OpenDevicePreferences(View view){
 		// Display the fragment as the main content.
         getFragmentManager().beginTransaction()
                 .replace(android.R.id.content, new SettingsFragment())
                 .commit();	
-	}
+	}//*/
 
 	Handler mHideHandler = new Handler();
 	Runnable mHideRunnable = new Runnable() {
@@ -415,11 +522,18 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		mHideHandler.postDelayed(mHideRunnable, delayMillis);
 	}
 	
+	
+	
 	public boolean onOptionsItemSelected(MenuItem item){
 		   
 		mHideHandler.removeCallbacks(mHideRunnable);
 		if (item.getItemId() == R.id.options_menu_item) {
 			Intent intent = new Intent(this, SettingsActivity.class);	
+			intent.putExtra(EXTRA_MESSAGE, R.xml.settings);
+			startActivity(intent);
+		} else if (item.getItemId()==R.id.options_menu_item_help) {
+			Intent intent = new Intent(this, SettingsActivity.class);	
+			intent.putExtra(EXTRA_MESSAGE,  R.xml.help);
 			startActivity(intent);
 		}
 		
@@ -513,9 +627,53 @@ public class FullscreenActivity extends Activity implements TextureView.SurfaceT
 		
 	}
 	
+	private void getOverflowMenu() {
 
+	     try {
+	        ViewConfiguration config = ViewConfiguration.get(this);
+	        Field menuKeyField = ViewConfiguration.class.getDeclaredField("sHasPermanentMenuKey");
+	        if(menuKeyField != null) {
+	            menuKeyField.setAccessible(true);
+	            menuKeyField.setBoolean(config, false);
+	        }
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
+	}
 	
+	private OnMenuVisibilityListener ActionBarMenuListerner = new OnMenuVisibilityListener(){
 
+		@Override
+		public void onMenuVisibilityChanged(boolean isVisible) {
+			if (isVisible){
+				mHideHandler.removeCallbacks(mHideRunnable);
+			} else {
+				delayedHide(AUTO_HIDE_DELAY_MILLIS);
+			}
+			
+		}
+		
+		
+	};
+	
+	OnSharedPreferenceChangeListener preferenceChangeListener = new OnSharedPreferenceChangeListener() {
+		
+		@Override
+		public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
+				String key) {
+			if (key.contains("turn_on_accelerometer_key")) {
+				/*/
+				if (sharedPreferences.getBoolean(key, true)){
+					mGLView.mRenderer.mAccelmeter.start();
+				} else {
+					mGLView.mRenderer.mAccelmeter.stop();
+					mGLView.mRenderer.mAccelmeter.linear_acceleration[0] = 0.0f;
+					mGLView.mRenderer.mAccelmeter.linear_acceleration[1] = 0.0f;//reset
+				}//*/
+			}
+			
+		}
+	};
 	
 }
 

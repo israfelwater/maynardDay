@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/options_menu_item_record"
+          android:title="@string/option_record"
+          android:icon="@drawable/ic_action_settings" 
+          android:showAsAction="withText"/>
     <item android:id="@+id/options_menu_item"
           android:title="@string/options"
           android:icon="@drawable/ic_action_settings" 
-          android:showAsAction="ifRoom|withText">
+          android:showAsAction="withText">
 		<!-- <menu android:id="@+id/settings_menu">
 		    <item
 		        android:id="@+id/devices_menu_item" 
@@ -22,4 +26,8 @@
                 android:showAsAction="ifRoom|withText"/>
 		</menu> -->   
 	</item>     
+	    <item android:id="@+id/options_menu_item_help"
+          android:title="@string/option_help"
+          android:icon="@drawable/ic_action_settings" 
+          android:showAsAction="withText"/>
 </menu>

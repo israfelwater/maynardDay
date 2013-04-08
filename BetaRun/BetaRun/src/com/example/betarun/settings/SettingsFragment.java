@@ -2,6 +2,11 @@ package com.example.betarun.settings;
 import com.example.betarun.R;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
+import android.app.FragmentManager;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.Preference;
@@ -10,12 +15,26 @@ import android.preference.PreferenceScreen;
 
 @TargetApi(Build.VERSION_CODES.HONEYCOMB)
 public class SettingsFragment extends PreferenceFragment {
-    @Override
+	private int mXmlId;
+	private String mKey;
+	private Resources mRes;
+	private FragmentManager mFrag;
+	private Activity mAct;
+	
+    public SettingsFragment(int xmlId) {
+		mXmlId = xmlId;
+	}
+
+
+	@Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        mAct = getActivity();
+        mRes = mAct.getResources();
+        mFrag = getFragmentManager();
         // Load the preferences from an XML resource
-        addPreferencesFromResource(R.xml.settings);
+        addPreferencesFromResource(mXmlId);
+        getPreferenceManager().getSharedPreferences().registerOnSharedPreferenceChangeListener(preferenceChangeListener);
     }
     
     
@@ -23,32 +42,50 @@ public class SettingsFragment extends PreferenceFragment {
     @Override
     public boolean onPreferenceTreeClick(PreferenceScreen prefScreen, Preference pref){
     	super.onPreferenceTreeClick(prefScreen, pref);
-    	if (pref.getKey().equals(getActivity().getResources().getString(R.string.devices_category_key))) {
+    	mKey = pref.getKey();
+    	if (mKey.equals(mRes.getString(R.string.devices_category_key))) {
     		// Display the fragment as the main content.
-    		getFragmentManager().beginTransaction().replace(R.id.settingsFragmentView, 
-    				new SubSettingsFragment().setArguments(R.xml.devices))
-    			.addToBackStack(null).commit();
-    		getActivity().setTitle("Devices");
+    		transact(R.xml.devices,"Devices");
     		return true;
-        } else if (pref.getKey().equals(getActivity().getResources().getString(
-        		R.string.visualizations_category_key))) {
+        } else if (mKey.equals(mRes.getString(R.string.visualizations_category_key))) {
     		// Display the fragment as the main content.
-    		getFragmentManager().beginTransaction().replace(R.id.settingsFragmentView, 
-    				new SubSettingsFragment().setArguments(R.xml.visualizations))
-    			.addToBackStack(null).commit();
-    		getActivity().setTitle("Visualizations");
+        	transact(R.xml.visualizations, "Visualizations");
     		return true;
-        }  else if (pref.getKey().equals(getActivity().getResources().getString(
-        		R.string.addons_category_key))) {
+        }  else if (mKey.equals(mRes.getString(R.string.addons_category_key))) {
     		// Display the fragment as the main content.
-    		getFragmentManager().beginTransaction().replace(R.id.settingsFragmentView, 
-    				new SubSettingsFragment().setArguments(R.xml.addons))
-    			.addToBackStack(null).commit();
-    		getActivity().setTitle("Visualizations"); 
+        	transact(R.xml.addons,"Add-Ons");
     		return true;
         }
     	return false;
     }
+    
+    private void transact(int id, String title){
+    	mFrag.beginTransaction().replace(R.id.settingsFragmentView, 
+				new SubSettingsFragment().setArguments(id))
+			.addToBackStack(null).commit();
+    	mAct.setTitle(title); 
+    }
+
+
+    OnSharedPreferenceChangeListener preferenceChangeListener = new OnSharedPreferenceChangeListener() {
+		
+		@Override
+		public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
+				String key) {
+			if (key.contains("input_device_key")||key.contains("output_device_key")){
+				mKey = key;
+				if (sharedPreferences.getString(key, "").contains(mRes.getString(R.string.inUSB_default))||
+					sharedPreferences.getString(key, "").contains(mRes.getString(R.string.outUSB_default))){
+					new UpSaleDialog(R.string.dialog_penelope_full_messsage_usb).show(mFrag,"PaidForVersionDialog");
+				}
+			} else if (key.contains("turn_on_accelerometer_key")||key.contains("visual_number_of_particles_key")) {
+				new UpSaleDialog(R.string.dialog_restart_simulation, R.string.dialog_button_ok)
+					.show(mFrag,"PaidForVersionDialog");
+			} 
+			
+		}
+	};
+
 }
   
 

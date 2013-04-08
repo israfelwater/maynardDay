@@ -5,6 +5,7 @@
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="OnAirTrue">On Air</string>
     <string name="OnAirFalse">Standby</string>
+    <string name="record_button">Record</string>
 	<string name="devices">Devices</string>
 	<string name="input_device">Input Device</string> 
 	<string name="output_device">Output Device</string>
@@ -16,10 +17,24 @@
 	<string name="shapes">Shapes</string>
 	<string name="open_account">Open Account</string>
 	<string name="options">Settings</string>
+	<string name="tutorial">Tutorial</string>
+	<string name="about">About</string>
+	<string name="option_record">Records</string>
+	<string name="option_help">Help</string>
 	<string name="blank"></string>
+	<string name="tutorial_key">tutorial_key</string>
+	<string name="report_problem_key">report_problem_key</string>
+	<string name="about_key">about_key</string>
 	<string name="visualizations_category_key">visualizations_category_key</string>
 	<string name="addons_category_key">addons_category_key</string>
 	<string name="devices_category_key">devices_category_key</string>
+	<string name="performance_options_category">Performance Options</string>
+	<string name="sound_category">Audio</string>
+	<string name="invert_phase">Invert Phase</string>
+	<string name="visualization">Visualization</string>
+	<string name="accelerometer">Accelerometer</string>
+	<string name="output_audio">Output Audio</string>
+	
 	<string-array name="notes">
 	    
 	    <item name="note0">A</item>
@@ -58,5 +73,19 @@
 	</string-array>
 	<string name="output_default">System Default(Playback Speaker)</string>
 	<string name="outUSB_default">USB Output Device</string>	
+	
+	
+	<string name="dialog_penelope_full_messsage_usb">Our apologies, USB Audio IO is only supported in the full version at this time.</string>
+	<string name="dialog_penelope_full_messsage_record">Our apologies, Recording is only supported in the full version at this time.</string>
+	<string name="dialog_penelope_full_messsage_capture">Our apologies, Recording is only supported in the full version. A work around may be to use a third party screen capture app.</string>
+	<string name="dialog_button_next_time">Next Time</string>
+	<string name="dialog_button_more_info">More Info</string>
+	
+	
+	<string name="dialog_restart_simulation">You must restart simulation for this change to take effect.</string>
+	<string name="dialog_button_ok">OK</string> 
+	
+	<string name="dialog_welcome_to_penelope">Welcom to Penelope.</string>
+	<string name="dialog_button_enjoy">Enjoy!</string> 
 	
 </resources>

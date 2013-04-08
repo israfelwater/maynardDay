@@ -25,6 +25,7 @@ import com.example.betarun.openGL.shapes.OuterCircle;
 import com.example.betarun.openGL.shapes.Particles;
 import com.example.betarun.openGL.shapes.Square;
 import com.example.betarun.openGL.shapes.Triangle;
+import com.example.betarun.openGL.utils.Accelmeter;
 import com.example.betarun.openGL.utils.SoundParticle;
 import com.example.betarun.openGL.utils.SoundParticleHexBins;
 import com.example.betarun.renderscript.ScriptC_particleFilter;
@@ -126,22 +127,29 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
     private Allocation mInAllocation;
     private Allocation mOutAllocation;
     private ScriptC_particleFilter mScript;
+    private SharedPreferences mSharedPrefs;
+    public Accelmeter mAccelmeter;
+    
     
     
     public MyGLRenderer(Context context){
     	mContext = context;
+    	mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(mContext);
         mLabelPaint = new Paint();
         mLabelPaint.setTextSize(32);
         mLabelPaint.setAntiAlias(true);
         mLabelPaint.setARGB(0xff, 0x00, 0x00, 0x00);
-
+        mAccelmeter = new Accelmeter(context);
     }
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-              
+        
+    	if (mSharedPrefs.getBoolean("turn_on_accelerometer_key", true)){
+    		mAccelmeter.start();
+    	}
         // Set the background frame color
-        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
         int[] textures = new int[1];
         GLES20.glGenTextures(1, textures, 0);
@@ -302,6 +310,10 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
         //Matrix.multiplyMM(mMVPMatrix, 0, mRotationMatrix, 0, mMVPMatrix, 0);
         
         //mScript.invoke_getNextPosition();
+        double ay = Math.abs(mAccelmeter.linear_acceleration[1]);
+        if (ay>1.0){
+        	mMode = 0;
+        }
         
         // Draw triangle
         mBillboard.draw(mMVPMatrix,mNote);

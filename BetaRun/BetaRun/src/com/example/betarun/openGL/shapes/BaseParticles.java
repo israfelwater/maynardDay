@@ -135,6 +135,8 @@ public class BaseParticles {
 
 	private void MoveParticiles(int mode, float radius, float amplitude) {
 		int k = 0;
+		if (mode==0) {Shake(radius); return;}
+		
 		float[][] nodes = ModeNodes.GetNodes(mode); 
 		for (int i = 0; i<particleCoords.length;){
 			float x = particleCoords[i];
@@ -192,7 +194,6 @@ public class BaseParticles {
 			//*/
 			
 			// update particleMomentum
-			 
 			particleMomentums[k] = (float) (damping*particleMomentums[k]-
 					towardNodes*force*Math.cos(angle));
 			particleMomentums[k+1] = (float) (damping*particleMomentums[k+1]-
@@ -202,6 +203,7 @@ public class BaseParticles {
 			x+=particleMomentums[k++]/1000;
 			y+=particleMomentums[k++]/1000;
 			
+			// check if particle is outside of circle
 			if (SoundParticleHexBins.distance(0.0f, 0.0f, x,y)>radius){
 				angle = Math.atan2(y,x);
 				x = (float) (radius*Math.cos(angle));
@@ -210,6 +212,61 @@ public class BaseParticles {
 				particleMomentums[k-1]=0;
 			}
 			
+			// push position to particleCoods array
+			particleCoords[i++] = x; // x iter to y
+			particleCoords[i++] = y; // y iter to z
+			i++; // skip z
+			
+		}
+		
+		// clear certexBuffer
+		vertexBuffer.clear();
+		// add the coordinates to the FloatBuffer
+        vertexBuffer.put(particleCoords);
+        // set the buffer to read the first coordinate
+        vertexBuffer.position(0);
+		
+	}
+
+
+	
+	
+	private void Shake(float r) {
+		int k = 0;
+		
+		for (int i = 0; i<particleCoords.length;){
+			float x = particleCoords[i];
+			float y = particleCoords[i+1];
+			double angle;
+			float force;
+			float damping; 
+			
+			force = 1;
+			angle = 2.0f*Math.PI*Math.random(); //new random angle
+			damping = 1;
+			
+			//*/
+			
+			// update particleMomentum
+			particleMomentums[k] = (float) (damping*particleMomentums[k]-
+					towardNodes*force*Math.cos(angle));
+			particleMomentums[k+1] = (float) (damping*particleMomentums[k+1]-
+					towardNodes*force*Math.sin(angle));
+			
+			// update particlePosition
+			x+=particleMomentums[k++]/1000;
+			y+=particleMomentums[k++]/1000;
+			
+			// check if particle is outside of circle
+			if (SoundParticleHexBins.distance(0.0f, 0.0f, x,y)>r){
+				angle = Math.atan2(y,x);
+				x = (float) (r*Math.cos(angle));
+				y = (float) (r*Math.sin(angle));
+				particleMomentums[k-2]=0;
+				particleMomentums[k-1]=0;
+			}
+			
+			// push position to particleCoods array
 			particleCoords[i++] = x; // x iter to y
 			particleCoords[i++] = y; // y iter to z
 			i++; // skip z

@@ -102,7 +102,9 @@ public class AudioOnAir {
 		mAudioRecord.setPositionNotificationPeriod(bufferSize/numBytePerFrame); // in frames, two bytes per frame pcm16 and monoChannel
 		mAudioRecord.setRecordPositionUpdateListener(mRecordListener); 
 		numRecChannels	= mAudioRecord.getChannelCount();
-
+		mAudioRecord.startRecording();
+		mAudioRecord.read(inputBuffer, sampleRate);
+		
 		
 		
 		//Setup output buffer
@@ -128,7 +130,7 @@ public class AudioOnAir {
 		numTrackChannels = mAudioTrack.getChannelCount();
 		
 		mSharedPref = PreferenceManager.getDefaultSharedPreferences(mContext);
-		
+		mAudioRecord.stop();
 	}
 	
 	Handler mAudioEventHandler = new Handler(Looper.getMainLooper()){
@@ -259,7 +261,10 @@ public class AudioOnAir {
 		//}
 		byte[] bufferTemp = new byte[bufferSize];
 		bufferTemp = TestSound(bufferTemp, mGLView.maxAmpIdx, mGLView.maxAmplitude);
-		mAudioTrack.write(bufferTemp, writeOffset, bufferSize);
+		if (mSharedPref.getBoolean("turn_on_output_audio_key", false)){
+			mAudioTrack.write(bufferTemp, writeOffset, bufferSize);
+		}
+		
 		
 		/*/ move the outputBuffer to the AudioTrackBuffer
 		for (int i = 0; i < bufferSize*2; i++){
@@ -419,13 +424,26 @@ public class AudioOnAir {
 		double[] sample = new double[buff.length>>mAudioTrack.getChannelCount()];
 		byte[] generatedSnd = new byte[buff.length];
 		double baseNote = 55.0; 
-		int freqControl = (int) (baseNote * Math.pow(2.0, (double) note / 12 ));
-		double phaseInc = 2 * Math.PI * freqControl / sampleRate;
+		double	freqControl = baseNote * Math.pow(2.0, (double) note / 12.0 );
+		float invert = 1.0f;
+		if (mSharedPref.getBoolean("invert_audio_key", false)){
+			invert = -1.0f;
+		}
+		
+		if (!(mGLRenderer==null)){
+			if (mGLRenderer.mAccelmeter.linear_acceleration[0]>1.0){
+				freqControl = baseNote * Math.pow(2.0, (double) (note+1) / 12.0 );
+			} else if (mGLRenderer.mAccelmeter.linear_acceleration[0]<-1.0){
+				freqControl = baseNote * Math.pow(2.0, (double) (note-1) / 12.0 );
+			} 
+		}
+		
+		double phaseInc = 2.0 * Math.PI * freqControl / (double) sampleRate;
 				
 	    for (int i = 0; i < sample.length; ++i) {
 	    	if (phase >= 2.0 * Math.PI) {phase %= 2.0 * Math.PI;}
 	    	phase += phaseInc;
-            sample[i] = 2 * amp * Math.sin(phase) + processBuffer[i];//[wave_index_tracker++];
+            sample[i] = 2.0 * amp * Math.sin(phase) + invert*processBuffer[i];//[wave_index_tracker++];
         }
         
 		
